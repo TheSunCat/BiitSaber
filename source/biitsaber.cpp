@@ -3,19 +3,29 @@
 #include <unistd.h>
 #include <gccore.h>
 #include <wiiuse/wpad.h>
+#include "wiimote.h"
 
 static void *xfb = NULL;
 static GXRModeObj *rmode = NULL;
 
-//---------------------------------------------------------------------------------
+// Block until A is pressed
+void pressA()
+{
+    while(1)
+    {
+        WPAD_ScanPads();
+        u32 gcPressed = WPAD_ButtonsDown(0);
+        if (gcPressed & WPAD_BUTTON_A) break;
+
+        usleep(100);
+    }
+}
+
 int main(int argc, char **argv) {
-//---------------------------------------------------------------------------------
-
-	// Initialise the video system
 	VIDEO_Init();
-
-	// This function initialises the attached controllers
 	WPAD_Init();
+
+    Wiimote wiimote;
 
 	// Obtain the preferred video mode from the system
 	// This will correspond to the settings in the Wii menu
@@ -29,51 +39,37 @@ int main(int argc, char **argv) {
 
 	// Set up the video registers with the chosen mode
 	VIDEO_Configure(rmode);
-
 	// Tell the video hardware where our display memory is
 	VIDEO_SetNextFramebuffer(xfb);
-
-	// Make the display visible
-	VIDEO_SetBlack(false);
-
-	// Flush the video register changes to the hardware
+	VIDEO_SetBlack(false); // Make the display visible
 	VIDEO_Flush();
-
-	// Wait for Video setup to complete
-	VIDEO_WaitVSync();
+	VIDEO_WaitVSync(); // Wait for Video setup to complete
 	if(rmode->viTVMode&VI_NON_INTERLACE) VIDEO_WaitVSync();
 
+	printf("Hello world! Press A...");
 
-	// The console understands VT terminal escape codes
-	// This positions the cursor on row 2, column 0
-	// we can use variables for this with format codes too
-	// e.g. printf ("\x1b[%d;%dH", row, column );
-	printf("\x1b[2;0H");
+    // loop to allow Wiimote to connect
+    pressA();
 
+    WPAD_SetDataFormat(-1, WPAD_FMT_BTNS_ACC_IR);
 
-	printf("Hello Stream!");
+    printf("Set motion plus on all wiimotes: %d\n", WPAD_SetMotionPlus(-1, 1));
 
-    // loop so i can connect the wiimote before calling SetMotionPlus to enabled.
-    // this needs to be called after the wiimote connected
-    while(1)
-    {
-        WPAD_ScanPads();
-        u32 gcPressed = WPAD_ButtonsDown(0);
-        if (gcPressed & WPAD_BUTTON_A) break;
+    WPAD_Rumble(-1, true);
+    sleep(1);
+    WPAD_Rumble(-1, false);
 
-        printf("Scanning pads... %i", gcPressed);
-    }
+    printf("Place the Wiimote on a flat surface for calibration and press A.\n");
+    pressA();
+    printf("Calibrating...\n");
+    wiimote.sensorCalibrate(40);
+    printf("Calibrated! Press A to continue.");
 
-    WPAD_SetDataFormat(0, WPAD_FMT_BTNS_ACC_IR);
-
-    printf("set motion plus on all wiimotes : %d\n", WPAD_SetMotionPlus(-1, 1));
 
     WPADData* wd;
     u32 type;
 
 	while(1) {
-
-		// Call WPAD_ScanPads each loop, this reads the latest controller states
 		WPAD_ScanPads();
 
         //WPAD_ReadPending(WPAD_CHAN_ALL, countevs);
@@ -99,12 +95,13 @@ int main(int argc, char **argv) {
 
         if(err == WPAD_ERR_NONE) {
             wd = WPAD_Data(0);
+
             printf("DATA ERR: %d\n\n",wd->err);
 
             printf("ACCEL:\n");
-            printf("X: %3d\n", wd->accel.x);
-            printf("Y: %3d\n", wd->accel.y);
-            printf("Z: %3d\n", wd->accel.z);
+            printf("X: %.02f\n", float(wd->accel.x));
+            printf("Y: %.02f\n", float(wd->accel.y));
+            printf("Z: %.02f\n", float(wd->accel.z));
 
             printf("\n");
             printf("ORIENT:\n");
@@ -114,9 +111,9 @@ int main(int argc, char **argv) {
 
             printf("\n");
             printf("MP:\n");
-            printf("PITCH: %.2hd\n", wd->exp.mp.rx); // frozen at 0.00
-            printf("YAW: %.2hd\n", wd->exp.mp.ry); // frozen at 0.00
-            printf("ROLL: %.2hd\n", wd->exp.mp.rz); // frozen at 0.00
+            printf("PITCH: %i\n", wd->exp.mp.rx);
+            printf("YAW: %i\n", wd->exp.mp.ry);
+            printf("ROLL: %i\n", wd->exp.mp.rz);
 
             printf("\n");
             printf("GFORCE:\n");
