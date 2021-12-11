@@ -6,6 +6,7 @@
 #include <gccore.h>
 #include <wiiuse/wpad.h>
 
+// Resources
 #include "Cube_tpl.h"
 #include "Cube.h"
 
@@ -77,14 +78,23 @@ void draw(guVector pos, guVector scale, Mtx& view, void** dispList, u32 dispList
     draw(model, view, dispList, dispListSize);
 }
 
-void draw(guVector pos, guVector scale, guQuaternion orient, Mtx& view, void** dispList, u32 dispListSize)
+void draw(guVector pos, guVector scale, guVector rotation, Mtx& view, void** dispList, u32 dispListSize)
 {
     Mtx model;
-
     guMtxIdentity(model);
     guMtxScaleApply(model,model, scale.x, scale.y, scale.z);
+
+    Mtx rot;
+    guMtxRotDeg(rot, 'x', rotation.x);
+    guMtxConcat(rot, model, model);
+    guMtxRotDeg(rot, 'y', rotation.y);
+    guMtxConcat(rot, model, model);
+    guMtxRotDeg(rot, 'z', rotation.z);
+    guMtxConcat(rot, model, model);
+
     guMtxTransApply(model,model, pos.x, pos.y, pos.z);
-    // TODO guMtxQuat(model, &orient);
+
+    // TODO use quaternions?
 
     draw(model, view, dispList, dispListSize);
 }
@@ -191,18 +201,13 @@ int main(int argc, char **argv) {
 
 
 //     printf("Hello world! Press A...");
-//
+
 //     //loop to allow Wiimote to connect
 //     pressA();
-//
-//     WPAD_SetDataFormat(-1, WPAD_FMT_BTNS_ACC_IR);
-//
-//     printf("Set motion plus on all wiimotes: %d\n", WPAD_SetMotionPlus(-1, 1));
-//
-//     WPAD_Rumble(-1, true);
-//     sleep(1);
-//     WPAD_Rumble(-1, false);
-//
+
+     WPAD_SetDataFormat(-1, WPAD_FMT_BTNS_ACC_IR);
+     printf("Set motion plus on all wiimotes: %d\n", WPAD_SetMotionPlus(-1, 1));
+
 //     printf("Place the Wiimote on a flat surface for calibration and press A.\n");
 //     pressA();
 //     printf("Calibrating...\n");
@@ -213,58 +218,18 @@ int main(int argc, char **argv) {
     WPADData* wd;
     u32 type;
 
+    guVector redRot, blueRot;
+
     while(1) {
         WPAD_ScanPads();
 
         u32 pressed = WPAD_ButtonsDown(0);
         if (pressed & WPAD_BUTTON_HOME) exit(0);
 
-        int err = WPAD_Probe(0, &type);
-        switch(err) {
-            case WPAD_ERR_NO_CONTROLLER:
-                printf("WIIMOTE NOT CONNECTED\n");
-                break;
-            case WPAD_ERR_NOT_READY:
-                printf("WIIMOTE NOT READY\n");
-                break;
-            case WPAD_ERR_NONE:
-                printf("WIIMOTE READY\n");
-                break;
-            default:
-                printf("UNK WIIMOTE STATE %d\n", err);
-        }
+        wd = WPAD_Data(0);
 
-
-        if(err == WPAD_ERR_NONE) {
-            //wd = WPAD_Data(0);
-
-            // TODO handle input
-
-            /*printf("DATA ERR: %d\n\n",wd->err);
-
-            printf("ACCEL:\n");
-            printf("X: %.02f\n", float(wd->accel.x));
-            printf("Y: %.02f\n", float(wd->accel.y));
-            printf("Z: %.02f\n", float(wd->accel.z));
-
-            printf("\n");
-            printf("ORIENT:\n");
-            printf("PITCH: %.02f\n", wd->orient.pitch);
-            printf("YAW: %.02f\n", wd->orient.yaw); // frozen at 0.00
-            printf("ROLL: %.02f\n", wd->orient.roll);
-
-            printf("\n");
-            printf("MP:\n");
-            printf("PITCH: %i\n", wd->exp.mp.rx);
-            printf("YAW: %i\n", wd->exp.mp.ry);
-            printf("ROLL: %i\n", wd->exp.mp.rz);
-
-            printf("\n");
-            printf("GFORCE:\n");
-            printf("X: %.02f\n", wd->gforce.x);
-            printf("Y: %.02f\n", wd->gforce.y);
-            printf("Z: %.02f\n", wd->gforce.z);*/
-        }
+        redRot.x = 90 - wd->orient.pitch;
+        redRot.z = wd->orient.roll;
 
         if(first_frame) {
             first_frame = false;
@@ -285,8 +250,8 @@ int main(int argc, char **argv) {
         draw({-5, -2, -20}, view, &blueCube, cubeDispListSize);
 
         GX_LoadTexObj(&saberTexture, GX_TEXMAP0);
-        draw({4, 0, -13}, {0.5, 4, 0.5}, view, &blueSaber, cubeDispListSize);
-        draw({-4, 0, -13}, {0.5, 4, 0.5}, view, &redSaber, cubeDispListSize);
+        draw({4, 0, -13}, {0.5, 4, 0.5}, blueRot, view, &blueSaber, cubeDispListSize);
+        draw({-4, 0, -13}, {0.5, 4, 0.5}, redRot, view, &redSaber, cubeDispListSize);
 
 
         // done drawing
