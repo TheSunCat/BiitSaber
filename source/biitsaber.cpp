@@ -5,8 +5,12 @@
 #include <unistd.h>
 #include <gccore.h>
 #include <wiiuse/wpad.h>
+
 #include "Cube_tpl.h"
 #include "Cube.h"
+
+#include "Saber_tpl.h"
+#include "Saber.h"
 
 #define DEFAULT_FIFO_SIZE    (256*1024)
 
@@ -14,9 +18,13 @@
 static void *frameBuffer[2] = { NULL, NULL};
 static GXRModeObj *rmode = NULL;
 
+GXTexObj cubeTexture, saberTexture;
+
 void *redCube, *blueCube;
+void *redSaber, *blueSaber;
+
 u32 cubeDispListSize;
-int buildLists(GXTexObj texture);
+void buildLists();
 u32 makeCube(void** theCube, guVector color);
 
 static GXColor lightColor[] = {
@@ -43,7 +51,6 @@ void draw(Mtx& model, Mtx& view, void** dispList, u32 dispListSize)
 {
     Mtx modelView;
 
-
     guMtxConcat(model, view, modelView);
     GX_LoadPosMtxImm(modelView, GX_PNMTX0);
     GX_CallDispList(*dispList, dispListSize);
@@ -59,13 +66,24 @@ void draw(guVector pos, Mtx& view, void** dispList, u32 dispListSize)
     draw(model, view, dispList, dispListSize);
 }
 
-void draw(guVector pos, guQuaternion& orient, Mtx& view, void** dispList, u32 dispListSize)
+void draw(guVector pos, guVector scale, Mtx& view, void** dispList, u32 dispListSize)
 {
     Mtx model;
 
     guMtxIdentity(model);
+    guMtxScaleApply(model,model, scale.x, scale.y, scale.z);
     guMtxTransApply(model,model, pos.x, pos.y, pos.z);
 
+    draw(model, view, dispList, dispListSize);
+}
+
+void draw(guVector pos, guVector scale, guQuaternion orient, Mtx& view, void** dispList, u32 dispListSize)
+{
+    Mtx model;
+
+    guMtxIdentity(model);
+    guMtxScaleApply(model,model, scale.x, scale.y, scale.z);
+    guMtxTransApply(model,model, pos.x, pos.y, pos.z);
     // TODO guMtxQuat(model, &orient);
 
     draw(model, view, dispList, dispListSize);
@@ -76,7 +94,6 @@ int main(int argc, char **argv) {
     u32 xfbHeight;
     u32 fb = 0;
     bool first_frame = true;
-    GXTexObj texture;
     Mtx view; // view and perspective matrices
     Mtx44 perspective;
     void *gpfifo = NULL;
@@ -84,8 +101,6 @@ int main(int argc, char **argv) {
     guVector cam = {0.0F, 0.0F, 0.0F},
               up = {0.0F, 1.0F, 0.0F},
             look = {0.0F, 0.0F, -1.0F};
-
-    TPLFile cubeTPL;
 
     VIDEO_Init();
     WPAD_Init();
@@ -159,8 +174,7 @@ int main(int argc, char **argv) {
     GX_InvVtxCache();
     GX_InvalidateTexAll();
 
-    TPL_OpenTPLFromMemory(&cubeTPL, (void *)Cube_tpl,Cube_tpl_size);
-    TPL_GetTexture(&cubeTPL,cube,&texture);
+
     // setup our camera at the origin
     // looking down the -z axis with y up
     guLookAt(view, &cam, &up, &look);
@@ -173,9 +187,7 @@ int main(int argc, char **argv) {
     guPerspective(perspective, 45, (f32)w/h, 0.1F, 300.0F);
     GX_LoadProjectionMtx(perspective, GX_PERSPECTIVE);
 
-    if (buildLists(texture)) { // Build the display lists
-        exit(1);        // Exit if failed.
-    }
+    buildLists();
 
 
 //     printf("Hello world! Press A...");
@@ -266,11 +278,15 @@ int main(int argc, char **argv) {
         // ----------------
 
 
-
         // draw the cubes
+        // TODO it's probably bad to copy the texture into GX_TEXMAP0 every time
+        GX_LoadTexObj(&cubeTexture, GX_TEXMAP0);
         draw({5, -2, -20}, view, &redCube, cubeDispListSize);
         draw({-5, -2, -20}, view, &blueCube, cubeDispListSize);
 
+        GX_LoadTexObj(&saberTexture, GX_TEXMAP0);
+        draw({4, 0, -13}, {0.5, 4, 0.5}, view, &blueSaber, cubeDispListSize);
+        draw({-4, 0, -13}, {0.5, 4, 0.5}, view, &redSaber, cubeDispListSize);
 
 
         // done drawing
@@ -289,23 +305,38 @@ int main(int argc, char **argv) {
     return 0;
 }
 
-int buildLists(GXTexObj texture) {
+void buildLists() {
+    // cube
+    TPLFile cubeTPL;
+
+    TPL_OpenTPLFromMemory(&cubeTPL, (void *)Cube_tpl,Cube_tpl_size);
+    TPL_GetTexture(&cubeTPL, cube, &cubeTexture);
 
     cubeDispListSize = makeCube(&redCube, {1, 0, 0});
     makeCube(&blueCube, {0, 0, 1});
 
-    // setup texture coordinate generation
-    // args: texcoord slot 0-7, matrix type, source to generate texture coordinates from, matrix to use
+    // sabers
+    TPLFile saberTPL;
+
+    TPL_OpenTPLFromMemory(&saberTPL, (void *)Saber_tpl,Saber_tpl_size);
+    TPL_GetTexture(&saberTPL, saber, &saberTexture);
+    makeCube(&redSaber, {1, 0, 0});
+    makeCube(&blueSaber, {0, 0, 1});
+
+    // make textures render better
+    Mtx mv, mr;
+    f32 w = rmode->viWidth;
+    f32 h = rmode->viHeight;
     GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY);
+    guLightPerspective(mv, 45, (f32)w/h, 1.05f, 1.0f, 0.0f, 0.0f);
+    guMtxTrans(mr, 0.0f, 0.0f, -1.0f);
+    guMtxConcat(mv, mr, mv);
+    GX_LoadTexMtxImm(mv, GX_TEXMTX0, GX_MTX3x4);
+    GX_InvalidateTexAll();
 
     // Set up TEV to paint the textures properly.
-    GX_SetTevOp(GX_TEVSTAGE0,GX_MODULATE);
+    GX_SetTevOp(GX_TEVSTAGE0, GX_MODULATE);
     GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0);
-
-    // Load up the textures (just one this time).
-    GX_LoadTexObj(&texture, GX_TEXMAP0);
-
-    return 0;
 }
 
 u32 makeCube(void** theCube, guVector color)
