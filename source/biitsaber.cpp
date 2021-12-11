@@ -85,11 +85,11 @@ void draw(guVector pos, guVector scale, guVector rotation, Mtx& view, void** dis
     guMtxScaleApply(model,model, scale.x, scale.y, scale.z);
 
     Mtx rot;
-    guMtxRotDeg(rot, 'x', rotation.x);
+    guMtxRotDeg(rot, 'z', rotation.z);
     guMtxConcat(rot, model, model);
     guMtxRotDeg(rot, 'y', rotation.y);
     guMtxConcat(rot, model, model);
-    guMtxRotDeg(rot, 'z', rotation.z);
+    guMtxRotDeg(rot, 'x', rotation.x);
     guMtxConcat(rot, model, model);
 
     guMtxTransApply(model,model, pos.x, pos.y, pos.z);
@@ -215,7 +215,7 @@ int main(int argc, char **argv) {
 //     printf("Calibrated! Press A to continue.");
 
 
-    WPADData* wd;
+    WPADData *wd0, *wd1;
     u32 type;
 
     guVector redRot, blueRot;
@@ -226,10 +226,16 @@ int main(int argc, char **argv) {
         u32 pressed = WPAD_ButtonsDown(0);
         if (pressed & WPAD_BUTTON_HOME) exit(0);
 
-        wd = WPAD_Data(0);
+        wd0 = WPAD_Data(0);
+        wd1 = WPAD_Data(1);
 
-        redRot.x = 90 - wd->orient.pitch;
-        redRot.z = wd->orient.roll;
+        blueRot.x = 90 - wd0->orient.pitch;
+        blueRot.y = wd0->orient.roll;
+
+        redRot.x = 90 - wd1->orient.pitch;
+        redRot.z = wd1->orient.roll;
+
+
 
         if(first_frame) {
             first_frame = false;
