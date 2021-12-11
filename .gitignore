@@ -34,3 +34,6 @@ perf.data*
 !projectmanagers/custom-buildsystem/tests/projects/**/.kdev4
 
 bin
+
+*.dol
+*.elf
