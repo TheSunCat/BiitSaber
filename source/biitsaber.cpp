@@ -233,7 +233,7 @@ int main(int argc, char **argv) {
         blueRot.y = wd0->orient.roll;
 
         redRot.x = 90 - wd1->orient.pitch;
-        redRot.z = wd1->orient.roll;
+        redRot.y = wd1->orient.roll;
 
 
 
