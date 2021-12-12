@@ -3,6 +3,7 @@
 #include <malloc.h>
 #include <string.h>
 #include <unistd.h>
+#include <vector>
 #include <gccore.h>
 #include <wiiuse/wpad.h>
 
@@ -36,12 +37,12 @@ static GXColor lightColor[] = {
 void setLight(Mtx mtx);
 
 // Block until A is pressed
-void pressA()
+void pressA(int wiimote = 0)
 {
     while(1)
     {
         WPAD_ScanPads();
-        u32 gcPressed = WPAD_ButtonsDown(0);
+        u32 gcPressed = WPAD_ButtonsDown(wiimote);
         if (gcPressed & WPAD_BUTTON_A) break;
 
         usleep(100);
@@ -218,7 +219,52 @@ int main(int argc, char **argv) {
     WPADData *wd0, *wd1;
     u32 type;
 
-    guVector redRot, blueRot;
+    guVector blueAccCalibration, redAccCalibration;
+
+    pressA(0);
+    pressA(1);
+
+    std::vector<guVector> blueAccCalibrationData, redAccCalibrationData;
+
+    for(int i = 0; i < 60; i++)
+    {
+        WPAD_ScanPads();
+
+        wd0 = WPAD_Data(0);
+        wd1 = WPAD_Data(1);
+
+        blueAccCalibrationData.push_back({float(wd0->accel.x), float(wd0->accel.y), float(wd0->accel.z)});
+        redAccCalibrationData.push_back({float(wd1->accel.x), float(wd1->accel.y), float(wd1->accel.z)});
+
+        VIDEO_WaitVSync();
+    }
+
+
+    for(int i = 0; i < blueAccCalibrationData.size(); i++)
+    {
+        blueAccCalibration.x += blueAccCalibrationData[0].x;
+        blueAccCalibration.y += blueAccCalibrationData[0].y;
+        blueAccCalibration.z += blueAccCalibrationData[0].z;
+
+        redAccCalibration.x += redAccCalibrationData[0].x;
+        redAccCalibration.y += redAccCalibrationData[0].y;
+        redAccCalibration.z += redAccCalibrationData[0].z;
+    }
+
+    blueAccCalibration.x /= float(blueAccCalibrationData.size());
+    blueAccCalibration.y /= float(blueAccCalibrationData.size());
+    blueAccCalibration.z /= float(blueAccCalibrationData.size());
+
+    redAccCalibration.x /= float(redAccCalibrationData.size());
+    redAccCalibration.y /= float(redAccCalibrationData.size());
+    redAccCalibration.z /= float(redAccCalibrationData.size());
+
+
+
+    guVector blueRot, redRot;
+    guVector bluePos, redPos;
+
+    guVector blueActualAccel, redActualAccel;
 
     while(1) {
         WPAD_ScanPads();
@@ -230,11 +276,20 @@ int main(int argc, char **argv) {
         wd1 = WPAD_Data(1);
 
         blueRot.x = 90 - wd0->orient.pitch;
-        blueRot.y = wd0->orient.roll;
+        blueRot.y = 180 - wd0->orient.roll;
 
         redRot.x = 90 - wd1->orient.pitch;
-        redRot.y = wd1->orient.roll;
+        redRot.y = 180 - wd1->orient.roll;
 
+
+        blueActualAccel = { float(wd0->accel.x), float(wd0->accel.y), float(wd0->accel.z) };
+        redActualAccel = { float(wd1->accel.x), float(wd1->accel.y), float(wd1->accel.z) };
+
+
+
+        //bluePos.x += (wd0->accel.x - blueAccCalibration.x) / 100000.f;
+        bluePos.y += (wd0->gforce.y - blueAccCalibration.x) / 10000.f;
+        //bluePos.z += (wd0->accel.z - blueAccCalibration.x) / 100000.f;
 
 
         if(first_frame) {
@@ -256,8 +311,8 @@ int main(int argc, char **argv) {
         draw({-5, -2, -20}, view, &blueCube, cubeDispListSize);
 
         GX_LoadTexObj(&saberTexture, GX_TEXMAP0);
-        draw({4, 0, -13}, {0.5, 4, 0.5}, blueRot, view, &blueSaber, cubeDispListSize);
-        draw({-4, 0, -13}, {0.5, 4, 0.5}, redRot, view, &redSaber, cubeDispListSize);
+        draw({4 + bluePos.x, 0 + bluePos.y, -13 + bluePos.z}, {0.5, 4, 0.5}, blueRot, view, &blueSaber, cubeDispListSize);
+        draw({-4 + redPos.x, 0 + redPos.y, -13 + redPos.z}, {0.5, 4, 0.5}, redRot, view, &redSaber, cubeDispListSize);
 
 
         // done drawing
