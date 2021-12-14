@@ -7,6 +7,8 @@
 #include <gccore.h>
 #include <wiiuse/wpad.h>
 
+#include "Util.h"
+
 // Resources
 #include "Cube_tpl.h"
 #include "Cube.h"
@@ -242,23 +244,12 @@ int main(int argc, char **argv) {
 
     for(int i = 0; i < blueAccCalibrationData.size(); i++)
     {
-        blueAccCalibration.x += blueAccCalibrationData[0].x;
-        blueAccCalibration.y += blueAccCalibrationData[0].y;
-        blueAccCalibration.z += blueAccCalibrationData[0].z;
-
-        redAccCalibration.x += redAccCalibrationData[0].x;
-        redAccCalibration.y += redAccCalibrationData[0].y;
-        redAccCalibration.z += redAccCalibrationData[0].z;
+        blueAccCalibration = blueAccCalibration + blueAccCalibrationData[i];
+        redAccCalibration = redAccCalibration + redAccCalibrationData[i];
     }
 
-    blueAccCalibration.x /= float(blueAccCalibrationData.size());
-    blueAccCalibration.y /= float(blueAccCalibrationData.size());
-    blueAccCalibration.z /= float(blueAccCalibrationData.size());
-
-    redAccCalibration.x /= float(redAccCalibrationData.size());
-    redAccCalibration.y /= float(redAccCalibrationData.size());
-    redAccCalibration.z /= float(redAccCalibrationData.size());
-
+    blueAccCalibration = blueAccCalibration / blueAccCalibrationData.size();
+    redAccCalibration = redAccCalibration / redAccCalibrationData.size();
 
 
     guVector blueRot, redRot;
