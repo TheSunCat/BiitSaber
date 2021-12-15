@@ -281,7 +281,7 @@ int main(int argc, char **argv) {
 
 
         //bluePos.x += (wd0->accel.x - blueAccCalibration.x) / 100000.f;
-        bluePos.y += (wd0->gforce.y - blueAccCalibration.x) / 10000.f;
+        bluePos.y += (wd0->accel.y - blueAccCalibration.x) / 10000.f;
         //bluePos.z += (wd0->accel.z - blueAccCalibration.x) / 100000.f;
 
 

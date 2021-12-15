@@ -9,4 +9,6 @@ guVector operator/(const guVector& left, const float right);
 
 guVector makeGuVector(float x, float y, float z);
 
+int millis();
+
 #endif // UTIL_H
