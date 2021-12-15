@@ -221,11 +221,12 @@ int main(int argc, char **argv) {
     WPADData *wd0, *wd1;
     u32 type;
 
-    guVector blueAccCalibration, redAccCalibration;
 
     pressA(0);
     pressA(1);
 
+    // TODO use linear least-squares from http://vr.cs.uiuc.edu/vrch9.pdf
+    guVector blueAccCalibration, redAccCalibration;
     std::vector<guVector> blueAccCalibrationData, redAccCalibrationData;
 
     for(int i = 0; i < 60; i++)
@@ -255,6 +256,8 @@ int main(int argc, char **argv) {
     guVector blueRot, redRot;
     guVector bluePos, redPos;
 
+    Mtx33 blueMtx, redMtx;
+
     guVector blueActualAccel, redActualAccel;
 
     while(1) {
@@ -272,9 +275,8 @@ int main(int argc, char **argv) {
         redRot.x = 90 - wd1->orient.pitch;
         redRot.y = 180 - wd1->orient.roll;
 
-
-        blueActualAccel = { float(wd0->accel.x), float(wd0->accel.y), float(wd0->accel.z) };
-        redActualAccel = { float(wd1->accel.x), float(wd1->accel.y), float(wd1->accel.z) };
+        blueActualAccel = makeGuVector(wd0->accel.x, wd0->accel.y, wd0->accel.z ) - blueAccCalibration;
+        redActualAccel = makeGuVector(wd1->accel.x, wd1->accel.y, wd1->accel.z ) - redAccCalibration;
 
 
 
