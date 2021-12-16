@@ -8,6 +8,7 @@
 #include <wiiuse/wpad.h>
 
 #include "Util.h"
+#include "Wiimote.h"
 
 // Resources
 #include "Cube_tpl.h"
@@ -37,19 +38,6 @@ static GXColor lightColor[] = {
     {0x80,0x80,0x80,0xFF}  // Mat color
 };
 void setLight(Mtx mtx);
-
-// Block until A is pressed
-void pressA(int wiimote = 0)
-{
-    while(1)
-    {
-        WPAD_ScanPads();
-        u32 gcPressed = WPAD_ButtonsDown(wiimote);
-        if (gcPressed & WPAD_BUTTON_A) break;
-
-        usleep(100);
-    }
-}
 
 void draw(Mtx& model, Mtx& view, void** dispList, u32 dispListSize)
 {
@@ -202,56 +190,10 @@ int main(int argc, char **argv) {
 
     buildLists();
 
+    WPAD_SetDataFormat(-1, WPAD_FMT_BTNS_ACC_IR);
+    WPAD_SetMotionPlus(-1, 1);
 
-//     printf("Hello world! Press A...");
-
-//     //loop to allow Wiimote to connect
-//     pressA();
-
-     WPAD_SetDataFormat(-1, WPAD_FMT_BTNS_ACC_IR);
-     printf("Set motion plus on all wiimotes: %d\n", WPAD_SetMotionPlus(-1, 1));
-
-//     printf("Place the Wiimote on a flat surface for calibration and press A.\n");
-//     pressA();
-//     printf("Calibrating...\n");
-//     wiimote.sensorCalibrate(40);
-//     printf("Calibrated! Press A to continue.");
-
-
-    WPADData *wd0, *wd1;
-    u32 type;
-
-
-    pressA(0);
-    pressA(1);
-
-    // TODO use linear least-squares from http://vr.cs.uiuc.edu/vrch9.pdf
-    guVector blueAccCalibration, redAccCalibration;
-    std::vector<guVector> blueAccCalibrationData, redAccCalibrationData;
-
-    for(int i = 0; i < 60; i++)
-    {
-        WPAD_ScanPads();
-
-        wd0 = WPAD_Data(0);
-        wd1 = WPAD_Data(1);
-
-        blueAccCalibrationData.push_back({float(wd0->accel.x), float(wd0->accel.y), float(wd0->accel.z)});
-        redAccCalibrationData.push_back({float(wd1->accel.x), float(wd1->accel.y), float(wd1->accel.z)});
-
-        VIDEO_WaitVSync();
-    }
-
-
-    for(int i = 0; i < blueAccCalibrationData.size(); i++)
-    {
-        blueAccCalibration = blueAccCalibration + blueAccCalibrationData[i];
-        redAccCalibration = redAccCalibration + redAccCalibrationData[i];
-    }
-
-    blueAccCalibration = blueAccCalibration / blueAccCalibrationData.size();
-    redAccCalibration = redAccCalibration / redAccCalibrationData.size();
-
+    Wiimote blueMote(0), redMote(1);
 
     guVector blueRot, redRot;
     guVector bluePos, redPos;
@@ -260,28 +202,35 @@ int main(int argc, char **argv) {
 
     guVector blueActualAccel, redActualAccel;
 
-    while(1) {
-        WPAD_ScanPads();
+    unsigned long lastLoop = millis() - 16;
 
+    while(1) {
+        unsigned long now = millis();
+        double dt = ((double)(now - lastLoop)) * 0.001; // deltaTime in seconds
+        lastLoop = now;
+
+        WPAD_ScanPads();
+        blueMote.update(dt);
+        redMote.update(dt);
+
+        // TODO use Wiimote API here
         u32 pressed = WPAD_ButtonsDown(0);
         if (pressed & WPAD_BUTTON_HOME) exit(0);
 
-        wd0 = WPAD_Data(0);
-        wd1 = WPAD_Data(1);
+        //blueRot.x = blueMote.orient.y; // pitch
+        //blueRot.y = blueMote.orient.x; // roll
 
-        blueRot.x = 90 - wd0->orient.pitch;
-        blueRot.y = 180 - wd0->orient.roll;
+        redRot.x = RadToDeg(redMote.orient.y) / 2.f;   // pitch
+        redRot.y = RadToDeg(redMote.orient.x) / 2.f;  // roll
+        redRot.z = RadToDeg(redMote.orient.z) / 2.f;
 
-        redRot.x = 90 - wd1->orient.pitch;
-        redRot.y = 180 - wd1->orient.roll;
-
-        blueActualAccel = makeGuVector(wd0->accel.x, wd0->accel.y, wd0->accel.z ) - blueAccCalibration;
-        redActualAccel = makeGuVector(wd1->accel.x, wd1->accel.y, wd1->accel.z ) - redAccCalibration;
+        //blueActualAccel = makeGuVector(wd0->accel.x, wd0->accel.y, wd0->accel.z ) - blueAccCalibration;
+        //redActualAccel = makeGuVector(wd1->accel.x, wd1->accel.y, wd1->accel.z ) - redAccCalibration;
 
 
 
         //bluePos.x += (wd0->accel.x - blueAccCalibration.x) / 100000.f;
-        bluePos.y += (wd0->accel.y - blueAccCalibration.x) / 10000.f;
+        //bluePos.y += (wd0->accel.y - blueAccCalibration.x) / 10000.f;
         //bluePos.z += (wd0->accel.z - blueAccCalibration.x) / 100000.f;
 
 
@@ -304,7 +253,7 @@ int main(int argc, char **argv) {
         draw({-5, -2, -20}, view, &blueCube, cubeDispListSize);
 
         GX_LoadTexObj(&saberTexture, GX_TEXMAP0);
-        draw({4 + bluePos.x, 0 + bluePos.y, -13 + bluePos.z}, {0.5, 4, 0.5}, blueRot, view, &blueSaber, cubeDispListSize);
+        //draw({4 + bluePos.x, 0 + bluePos.y, -13 + bluePos.z}, {0.5, 4, 0.5}, blueRot, view, &blueSaber, cubeDispListSize);
         draw({-4 + redPos.x, 0 + redPos.y, -13 + redPos.z}, {0.5, 4, 0.5}, redRot, view, &redSaber, cubeDispListSize);
 
 

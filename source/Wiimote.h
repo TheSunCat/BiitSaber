@@ -1,8 +1,9 @@
 #ifndef WIIMOTE_H_INCLUDED
 #define WIIMOTE_H_INCLUDED
 
-// code from https://arduino-projects4u.com/wii-motion-plus/
+#include <gccore.h>
 
+// code from https://arduino-projects4u.com/wii-motion-plus/
 struct GyroKalman
 {
   double x_angle, x_bias;      // These variables represent our state matrix x
@@ -30,7 +31,7 @@ static const int wmpFastToDegreePerSec = wmpSlowToDegreePerSec/4;
 
 // WM+ variables  R represents the measurement covariance noise.
 // In this case, it is a 1x1 matrix that says that we expect 0.3 rad jitter from the accelerometer.
-static const float	R_angle	= .3; //.3 default
+static const float	R_angle = .3; //.3 default
 
 // Q is a 2x2 matrix that represents the process covariance noise. In this case, it indicates how much we trust the acceleromter relative to the gyros.
 // You should play with different values here as the effects are interesting.  Over prioritizing the accelerometers results in fairly inaccurate results.
@@ -42,6 +43,48 @@ public:
     Wiimote(int channel);
 
     void calibrateZeroes();
+    void update(double dt);
+
+    guVector orient;
+
+private:
+    void readData();
+
+    void rawReadData();
+
+    /* Initialize the kalman structures.
+     * kalman    the kalman data structure
+     * Q_angle   the process covariance noise for the accelerometers
+     * Q_gyro    the process covariance noise for the gyros
+     * R_angle   the measurement covariance noise (jitter in the accelerometers)
+    */
+    void initGyroKalman(struct GyroKalman *kalman, const float Q_angle, const float Q_gyro, const float R_angle);
+
+    /*
+     * The kalman predict method.  See http://en.wikipedia.org/wiki/Kalman_filter#Predict
+     * kalman    the kalman data structure
+     * dotAngle  Derivitive Of The (D O T) Angle.  This is the change in the angle from the gyro.  This is the value from the
+     *           Wii MotionPlus, scaled to fast/slow.
+     * dt        the change in time, in seconds; in other words the amount of time it took to sweep dotAngle
+     * Note: Tom Pycke's ars.c code was the direct inspiration for this.  However, his implementation of this method was inconsistent
+     *       with the matrix algebra that it came from.  So I went with the matrix algebra and tweaked his implementation here.
+    */
+    void predict(struct GyroKalman *kalman, double dotAngle, double dt);
+
+    /*
+     * The kalman update method.  See http://en.wikipedia.org/wiki/Kalman_filter#Update
+     * kalman    the kalman data structure
+     *  angle_m   the angle observed from the Wii Nunchuk accelerometer, in radians
+    */
+    double updateKalman(struct GyroKalman *kalman, double angle_m);
+
+    /* Compute the common fourth-order Runge-Kutta algorithm as part of the integrating the gyro's yaw signal.  This
+     * will smooth the values a tad.  Gyro drift is still a problem, however.
+     * rk       the RungaKutta struct to hold previous values
+     * val_i_0  the latest raw value to integrate
+     * returns the RK4 approximation of all values up until time t
+    */
+    double computeRungeKutta4(struct RungeKutta *rk, double val_i_0);
 
     // Kalman data structures for each rotational axis
     struct GyroKalman rollData;  struct GyroKalman pitchData;  struct GyroKalman yawData;
@@ -61,20 +104,9 @@ public:
     //bool slowYaw, slowPitch, slowRoll;     // WM+ state variables - if true, then in slow (high res) mode
 
     bool debug = false;
-    float accelAngleX=0;	// Wiimote X angle
-    float accelAngleY=0;	// Wiimote Y angle
-    float accelAngleZ=0;	// Wiimote Z angle
-
-private:
-    void receiveData();
-
-    /* Initialize the kalman structures.
-    * kalman    the kalman data structure
-    * Q_angle   the process covariance noise for the accelerometers
-    * Q_gyro    the process covariance noise for the gyros
-    * R_angle   the measurement covariance noise (jitter in the accelerometers)
-    */
-    void initGyroKalman(struct GyroKalman *kalman, const float Q_angle, const float Q_gyro, const float R_angle);
+    float accelAngleX=0;    // Wiimote X angle
+    float accelAngleY=0;    // Wiimote Y angle
+    float accelAngleZ=0;    // Wiimote Z angle
 
     int chan;
     unsigned long lastread=0; // Internal program state variables last system clock in millis
