@@ -193,7 +193,8 @@ int main(int argc, char **argv) {
     WPAD_SetDataFormat(-1, WPAD_FMT_BTNS_ACC_IR);
     WPAD_SetMotionPlus(-1, 1);
 
-    Wiimote blueMote(0), redMote(1);
+    Wiimote blueMote(0);
+    Wiimote redMote(1);
 
     guVector blueRot, redRot;
     guVector bluePos, redPos;
@@ -202,7 +203,7 @@ int main(int argc, char **argv) {
 
     guVector blueActualAccel, redActualAccel;
 
-    unsigned long lastLoop = millis() - 16;
+    unsigned long lastLoop = millis();
 
     while(1) {
         unsigned long now = millis();
@@ -220,9 +221,9 @@ int main(int argc, char **argv) {
         //blueRot.x = blueMote.orient.y; // pitch
         //blueRot.y = blueMote.orient.x; // roll
 
-        redRot.x = RadToDeg(redMote.orient.y) / 2.f;   // pitch
-        redRot.y = RadToDeg(redMote.orient.x) / 2.f;  // roll
-        redRot.z = RadToDeg(redMote.orient.z) / 2.f;
+        redRot.x = redMote.orient.y;   // pitch
+        redRot.y = redMote.orient.x;   // roll
+        redRot.z = redMote.orient.z;
 
         //blueActualAccel = makeGuVector(wd0->accel.x, wd0->accel.y, wd0->accel.z ) - blueAccCalibration;
         //redActualAccel = makeGuVector(wd1->accel.x, wd1->accel.y, wd1->accel.z ) - redAccCalibration;
@@ -253,7 +254,7 @@ int main(int argc, char **argv) {
         draw({-5, -2, -20}, view, &blueCube, cubeDispListSize);
 
         GX_LoadTexObj(&saberTexture, GX_TEXMAP0);
-        //draw({4 + bluePos.x, 0 + bluePos.y, -13 + bluePos.z}, {0.5, 4, 0.5}, blueRot, view, &blueSaber, cubeDispListSize);
+        draw({4 + bluePos.x, 0 + bluePos.y, -13 + bluePos.z}, {0.5, 4, 0.5}, blueRot, view, &blueSaber, cubeDispListSize);
         draw({-4 + redPos.x, 0 + redPos.y, -13 + redPos.z}, {0.5, 4, 0.5}, redRot, view, &redSaber, cubeDispListSize);
 
 

@@ -42,14 +42,14 @@ class Wiimote {
 public:
     Wiimote(int channel);
 
-    void calibrateZeroes();
     void update(double dt);
 
     guVector orient;
 
 private:
-    void readData();
+    void calibrateZeroes();
 
+    void readData();
     void rawReadData();
 
     /* Initialize the kalman structures.

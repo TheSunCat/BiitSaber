@@ -17,6 +17,8 @@ Wiimote::Wiimote(int channel) : chan(channel)
         sleep_for(50);
     }
 
+    calibrateZeroes();
+
     initGyroKalman(&rollData,Q_angle,Q_gyro,R_angle);
     initGyroKalman(&pitchData,Q_angle,Q_gyro,R_angle);
     initGyroKalman(&yawData,Q_angle,Q_gyro,R_angle);
@@ -43,7 +45,7 @@ void Wiimote::calibrateZeroes()
         ya0 += ay_m;
         za0 += az_m;
 
-        sleep_for(5);
+        sleep_for(10);
     }
 
     yaw0 = y0 / (avg/2); roll0 = r0 / (avg/2); pitch0 = p0 / (avg/2);
@@ -119,9 +121,9 @@ void Wiimote::readData() {
     double x = angleInRadians(-512, 511, ax_m), y = angleInRadians(-512, 511, ay_m), z = angleInRadians(-512, 511, az_m);
     // compute values that are used in multiple places
     double xSquared = x*x; double ySquared = y*y; double zSquared = z*z;
-    accelAngleX = (accelAngleX * 0.9 + atan(x / sqrt(ySquared + zSquared))*0.1);
-    accelAngleY = (accelAngleY * 0.9 + atan(y / sqrt(xSquared + zSquared))*0.1);
-    accelAngleZ = (accelAngleZ * 0.9 + atan(sqrt(xSquared + ySquared)/ z)*0.1);
+    accelAngleX = (accelAngleX * 0.8 + atan(x / sqrt(ySquared + zSquared))*0.2);
+    accelAngleY = (accelAngleY * 0.8 + atan(y / sqrt(xSquared + zSquared))*0.2);
+    accelAngleZ = (accelAngleZ * 0.8 + atan(sqrt(xSquared + ySquared)/ z)*0.2);
     // filter readings using low pass filter for acceleromters to remove jitter
     // big percentage of previous value plus smaller percentage of current value
     // effect is delay large changes from reaching the output but at cost of reduced sensitivity
@@ -132,16 +134,16 @@ void Wiimote::rawReadData()
     WPADData* wd = WPAD_Data(chan);
 
     // MotionPlus
-    yaw =   wd->exp.mp.ry;
-    roll =  wd->exp.mp.rz;
-    pitch = wd->exp.mp.rx;
+    yaw =   wd->exp.mp.ry / wmpFastToDegreePerSec;
+    roll =  wd->exp.mp.rz / wmpFastToDegreePerSec;
+    pitch = wd->exp.mp.rx / wmpFastToDegreePerSec;
 
     // TODO not handling slow/fast mode, can this cause problems or does WPAD do that for me?
     /*slowPitch = data[3] & 1;
     slowYaw = data[3] & 2;
     slowRoll = data[4] & 2;*/
 
-    // This function processes the byte array from the wii nunchuck.
+    // This function processes the byte array from the wii nunchuck (Wiimote?).
     ax_m = wd->accel.x;
     ay_m = wd->accel.y;
     az_m = wd->accel.z;
